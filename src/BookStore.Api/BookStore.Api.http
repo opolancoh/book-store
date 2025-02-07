@@ -1,0 +1,49 @@
+@host = http://localhost:5220
+@category1_id = c0a80121-0000-0000-0000-000000000001
+@author1_id = c0a80121-0000-0000-0001-000000000001
+@book1_id = c0a80121-0000-0000-0002-000000000001
+
+GET {{host}}/api/books
+Accept: application/json
+
+###
+
+GET {{host}}/api/books/{{book1_id}}
+Accept: application/json
+
+###
+
+POST {{host}}/api/books
+Content-Type: application/json
+
+{
+   "title": "New Book",
+   "isbn": "1234567890123",
+   "description": "Book description",
+   "price": 29.99,
+   "publicationYear": 2024,
+   "authorId": "{{author1_id}}",
+   "categoryId": "{{category1_id}}"
+}
+
+###
+
+PUT {{host}}/api/books/{{book1_id}}
+Content-Type: application/json
+
+{
+   "id": "{{book1_id}}",
+   "title": "Updated Book",
+   "isbn": "1234567890123",
+   "description": "Updated description",
+   "price": 39.99,
+   "publicationYear": 2024,
+   "authorId": "{{author1_id}}",
+   "categoryId": "{{category1_id}}"
+}
+
+###
+
+DELETE {{host}}/api/books/{{book1_id}}
+
+###
