@@ -28,3 +28,5 @@ app.MapControllers();
 
 app.Run();
 
+// Expose Program for integration testing.
+public partial class Program { }
