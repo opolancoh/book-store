@@ -6,8 +6,8 @@ services:
     container_name: bookstore-api
     
     ports:
-      # Map HTTP port from host to container (default: 5050 if API_PORT not set)
-      - "${API_PORT:-5050}:${API_PORT:-5050}"
+      # Map HTTP port from host to container (default: 5050 if HTTP_PORT not set)
+      - "${HTTP_PORT:-5050}:${HTTP_PORT:-5050}"
       # Map HTTPS port from host to container (default: 5051 if HTTPS_PORT not set)
       - "${HTTPS_PORT:-5051}:${HTTPS_PORT:-5051}"
     
@@ -15,7 +15,7 @@ services:
       # Set ASP.NET Core environment (defaults to Development)
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       # Configure Kestrel to listen on both HTTP and HTTPS ports
-      - ASPNETCORE_URLS=http://+:${API_PORT:-5050};https://+:${HTTPS_PORT:-5051}
+      - ASPNETCORE_URLS=http://+:${HTTP_PORT:-5050};https://+:${HTTPS_PORT:-5051}
       # SSL certificate configuration
       - ASPNETCORE_Kestrel__Certificates__Default__Password=${MYDOTNETCERT_CERT_PASSWORD}
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/my-dotnet-cert.pfx
