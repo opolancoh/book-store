@@ -19,6 +19,51 @@ public class BookServiceTests
         _mockMapper = new Mock<IMapper>();
         _bookService = new BookService(_mockBookRepository.Object, _mockMapper.Object);
     }
+    
+    [Fact]
+    public async Task CreateBookAsync_ValidDto_ReturnsCreatedBookDto()
+    {
+        // Arrange
+        var createBookDto = new CreateBookDto();
+        var expectedBookDto = new BookDto();
+        var book = new Book();
+
+        _mockMapper.Setup(x => x.Map<Book>(createBookDto))
+            .Returns(book);
+        _mockMapper.Setup(x => x.Map<BookDto>(book))
+            .Returns(expectedBookDto);
+
+        // Act
+        var result = await _bookService.CreateBookAsync(createBookDto);
+
+        // Assert
+        Assert.NotNull(result);
+        _mockBookRepository.Verify(x => x.AddAsync(book), Times.Once);
+        _mockMapper.Verify(x => x.Map<Book>(createBookDto), Times.Once);
+        _mockMapper.Verify(x => x.Map<BookDto>(book), Times.Once);
+    }
+    
+    [Fact]
+    public async Task GetAllBooksAsync_ReturnsAllBooks()
+    {
+        // Arrange
+        var books = new List<Book> { new Book(), new Book() };
+        var expectedBookDtos = new List<BookDto> { new BookDto(), new BookDto() };
+
+        _mockBookRepository.Setup(x => x.GetAllAsync())
+            .ReturnsAsync(books);
+        _mockMapper.Setup(x => x.Map<IEnumerable<BookDto>>(books))
+            .Returns(expectedBookDtos);
+
+        // Act
+        var result = await _bookService.GetAllBooksAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(expectedBookDtos.Count, result.Count());
+        _mockBookRepository.Verify(x => x.GetAllAsync(), Times.Once);
+        _mockMapper.Verify(x => x.Map<IEnumerable<BookDto>>(books), Times.Once);
+    }
 
     [Fact]
     public async Task GetBookByIdAsync_ExistingId_ReturnsBookDto()
@@ -57,51 +102,6 @@ public class BookServiceTests
         // Assert
         Assert.Null(result);
         _mockBookRepository.Verify(x => x.GetBookWithDetailsAsync(bookId), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetAllBooksAsync_ReturnsAllBooks()
-    {
-        // Arrange
-        var books = new List<Book> { new Book(), new Book() };
-        var expectedBookDtos = new List<BookDto> { new BookDto(), new BookDto() };
-
-        _mockBookRepository.Setup(x => x.GetAllAsync())
-            .ReturnsAsync(books);
-        _mockMapper.Setup(x => x.Map<IEnumerable<BookDto>>(books))
-            .Returns(expectedBookDtos);
-
-        // Act
-        var result = await _bookService.GetAllBooksAsync();
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(expectedBookDtos.Count, result.Count());
-        _mockBookRepository.Verify(x => x.GetAllAsync(), Times.Once);
-        _mockMapper.Verify(x => x.Map<IEnumerable<BookDto>>(books), Times.Once);
-    }
-
-    [Fact]
-    public async Task CreateBookAsync_ValidDto_ReturnsCreatedBookDto()
-    {
-        // Arrange
-        var createBookDto = new CreateBookDto();
-        var book = new Book();
-        var expectedBookDto = new BookDto();
-
-        _mockMapper.Setup(x => x.Map<Book>(createBookDto))
-            .Returns(book);
-        _mockMapper.Setup(x => x.Map<BookDto>(book))
-            .Returns(expectedBookDto);
-
-        // Act
-        var result = await _bookService.CreateBookAsync(createBookDto);
-
-        // Assert
-        Assert.NotNull(result);
-        _mockBookRepository.Verify(x => x.AddAsync(book), Times.Once);
-        _mockMapper.Verify(x => x.Map<Book>(createBookDto), Times.Once);
-        _mockMapper.Verify(x => x.Map<BookDto>(book), Times.Once);
     }
 
     [Fact]
