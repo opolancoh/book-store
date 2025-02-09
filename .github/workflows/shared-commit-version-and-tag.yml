@@ -25,12 +25,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
+      - name: Configure Git to push new version
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Update version in file
+      - name: Update version in project file
         shell: bash
         run: |
           sed -i "s|<Version>.*</Version>|<Version>${{ inputs.new-version }}</Version>|" "${{ inputs.file-path }}"

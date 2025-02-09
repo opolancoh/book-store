@@ -85,3 +85,11 @@ jobs:
         shell: bash
         run: |
           sed -i "s|<Version>.*</Version>|<Version>${{ env.NEW_VERSION }}</Version>|" "${{ inputs.project-path }}"
+
+      - name: Version information
+        run: |
+          echo "----------------------------------------"
+          echo "Version Summary:"
+          echo "Current Version: ${{ env.CURRENT_VERSION }}"
+          echo "New Version:     ${{ env.NEW_VERSION }}"
+          echo "----------------------------------------"
