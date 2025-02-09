@@ -16,14 +16,14 @@ jobs:
 
   semantic-versioning:
     name: Calculate and update new semantic version
-    needs: [build-and-test]
-    uses: ./.github/workflows/semantic-version.yml
+    needs: [ build-and-test ]
+    uses: ./.github/workflows/dotnet-semantic-version.yml
     with:
       version-file-path: './src/BookStore.Api/BookStore.Api.csproj'
 
   deploy:
     name: Deploy ${{ github.ref_name }} branch
-    needs: [semantic-versioning]
+    needs: [ semantic-versioning ]
     uses: ./.github/workflows/shared-deployment.yml
     with:
       webhook-url: ${{ vars.WEBHOOK_URL }}
