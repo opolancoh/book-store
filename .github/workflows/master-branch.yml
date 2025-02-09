@@ -14,28 +14,19 @@ jobs:
     with:
       dotnet-version: '9.0.x'
 
-  calculate-new-version:
-    name: Calculate New Version
-    needs: build-and-test
-    uses: ./.github/workflows/shared-version-management.yml
+  semantic-versioning:
+    name: Calculate and update new semantic version
+    needs: [build-and-test]
+    uses: ./.github/workflows/semantic-version.yml
     with:
-      project-path: './src/BookStore.Api/BookStore.Api.csproj'
-
-  update-version-and-tag:
-    name: Update Version and Tag
-    needs: calculate-new-version
-    uses: ./.github/workflows/shared-commit-version-and-tag.yml
-    with:
-      file-path: './src/BookStore.Api/BookStore.Api.csproj'
-      new-version: ${{ needs.calculate-new-version.outputs.new-version }}
-      branch: ${{ github.ref_name }}
+      version-file-path: './src/BookStore.Api/BookStore.Api.csproj'
 
   deploy:
     name: Deploy ${{ github.ref_name }} branch
-    needs: [calculate-new-version, update-version-and-tag]
+    needs: [semantic-versioning]
     uses: ./.github/workflows/shared-deployment.yml
     with:
       webhook-url: ${{ vars.WEBHOOK_URL }}
       application-id: ${{ vars.APPLICATION_ID }}
-      version: ${{ needs.calculate-new-version.outputs.new-version }}
+      version: ${{ needs.semantic-versioning.outputs.new-version }}
       branch: ${{ github.ref_name }}

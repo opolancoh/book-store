@@ -1,0 +1,107 @@
+name: Semantic Version Management
+
+on:
+  workflow_call:
+    inputs:
+      version-file-path:
+        required: true
+        type: string
+        description: "Path to the project file containing version information (e.g., .csproj)"
+    outputs:
+      new-version:
+        description: "The newly calculated semantic version based on commit messages"
+        value: ${{ jobs.semantic-versioning.outputs.new_version }}
+
+jobs:
+  semantic-versioning:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.increment_version.outputs.new_version }}
+    
+    steps:
+      - name: Checkout code repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for version calculation
+
+      - name: Verify project file location
+        run: |
+          pwd
+          ls -la
+          echo "Searching for project file at: ${{ inputs.version-file-path }}"
+          if [ -f "${{ inputs.version-file-path }}" ]; then
+            echo "Project file found"
+            cat "${{ inputs.version-file-path }}"
+          else
+            echo "File not found, available .csproj files:"
+            find . -name "*.csproj" -type f
+          fi
+
+      - name: Read current version from file
+        id: read_version
+        shell: bash
+        run: |
+          if [ ! -f "${{ inputs.version-file-path }}" ]; then
+            echo "::error::File not found at ${{ inputs.version-file-path }}"
+            exit 1
+          fi
+          
+          VERSION=$(grep -oP '(?<=<Version>)(.*?)(?=</Version>)' "${{ inputs.version-file-path }}" || echo "1.0.0")
+          if [ -z "$VERSION" ]; then
+            echo "No version tag found in project file, initializing with 1.0.0"
+            VERSION="1.0.0"
+          fi
+          echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Current version: $VERSION"
+
+      - name: Increment semantic version
+        id: increment_version
+        shell: bash
+        run: |
+          CURRENT_VERSION="${{ env.CURRENT_VERSION }}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Check commit messages for version bump indicators
+          if git log "$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD^)"..HEAD --pretty=format:"%s" | grep -qiE '\[major\]'; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif git log "$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD^)"..HEAD --pretty=format:"%s" | grep -qiE '\[minor\]'; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update the version in the file
+        shell: bash
+        run: |
+          sed -i "s|<Version>.*</Version>|<Version>${{ env.NEW_VERSION }}</Version>|" "${{ inputs.version-file-path }}"
+
+      - name: Setup Git credentials
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version update
+        run: |
+          git add "${{ inputs.version-file-path }}"
+          git commit -m "chore: update version to ${{ env.NEW_VERSION }} [skip ci]"
+          git push origin master
+
+      - name: Create version tag
+        run: |
+          git tag -a "v${{ env.NEW_VERSION }}" -m "Release v${{ env.NEW_VERSION }}"
+          git push origin "v${{ env.NEW_VERSION }}"
+
+      - name: Display version summary
+        run: |
+          echo "----------------------------------------"
+          echo "Version Update Summary:"
+          echo "Previous Version: ${{ env.CURRENT_VERSION }}"
+          echo "New Version:      ${{ env.NEW_VERSION }}"
+          echo "----------------------------------------"
