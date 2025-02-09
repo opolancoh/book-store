@@ -25,15 +25,18 @@ jobs:
       - name: Run tests
         run: dotnet test --no-build --verbosity normal
 
-      - name: Run Versioning Workflow
-        if: success()
-        uses: ./.github/workflows/versioning.yml
-        with:
-          commit_message: "${{ github.event.head_commit.message }}"
-          csproj_file: "BookStore.Api.csproj"
-
+  version:
+    needs: build
+    uses: ./.github/workflows/dotnet-versioning.yml
+    with:
+      commit_message: ${{ github.event.head_commit.message }}
+      csproj_file: "BookStore.Api.csproj"
+  
+  deployment:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
       - name: Send Webhook Notification
-        if: success()
         run: |
           curl -X POST "${{ vars.WEBHOOK_URL }}/api/github" \
           -H "Content-Type: application/json" \
