@@ -1,34 +1,35 @@
 name: Master Branch Workflow
 
 permissions:
-  contents: write  # For git push
+  contents: write
 
 on:
   push:
     branches: [ "master" ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
 
-      - name: Restore dependencies
+      - name: Install project dependencies
         run: dotnet restore
 
-      - name: Build
+      - name: Run build
         run: dotnet build --no-restore
 
       - name: Run tests
         run: dotnet test --no-build --verbosity normal
 
-      - name: Get latest version
+      - name: Extract current version from csproj
         id: get_version
         run: |
           VERSION=$(grep -oP '(?<=<Version>)(.*?)(?=</Version>)' src/BookStore.Api/BookStore.Api.csproj)
@@ -39,7 +40,7 @@ jobs:
           echo "Current version: $VERSION"
           echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Determine new version
+      - name: Calculate next version number
         id: bump_version
         run: |
           CURRENT_VERSION="${{ env.CURRENT_VERSION }}"
@@ -47,8 +48,6 @@ jobs:
           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
           PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
           
-          # Determine if this is a breaking change, feature, or patch
-          # Read commit messages to decide
           if git log -1 --pretty=%B | grep -q '\[major\]'; then
             MAJOR=$((MAJOR + 1))
             MINOR=0
@@ -64,24 +63,26 @@ jobs:
           echo "New version: $NEW_VERSION"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
-      - name: Configure Git
+      - name: Setup Git credentials
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git fetch origin master
 
-      - name: Update project file and commit
+      - name: Update version and push changes
         run: |
-          # Update version in project file
           sed -i "s/<Version>.*<\/Version>/<Version>${{ env.NEW_VERSION }}<\/Version>/" src/BookStore.Api/BookStore.Api.csproj
-          
-          # Stage, commit, and push changes
           git add src/BookStore.Api/BookStore.Api.csproj
           git commit -m "Bump version to ${{ env.NEW_VERSION }}"
           git pull --rebase origin master
           git push origin master
 
-      - name: Run deployment
+      - name: Create and push version tag
+        run: |
+          git tag -a "v${{ env.NEW_VERSION }}" -m "Release version ${{ env.NEW_VERSION }}"
+          git push origin "v${{ env.NEW_VERSION }}"
+
+      - name: Trigger deployment webhook
         if: success()
         run: |
           response=$(curl -w "\n%{http_code}" -X POST "${{ vars.WEBHOOK_URL }}/api/github" \
@@ -91,7 +92,7 @@ jobs:
             "appId": "${{ vars.APPLICATION_ID }}"
           }')
           status_code=$(echo "$response" | tail -n1)
-          if [ "$status_code" -ge 400 ]; then
+          if [ "$status_code" -lt 200 ] || [ "$status_code" -ge 300 ]; then
             echo "Deployment webhook failed with status: $status_code"
             exit 1
           fi
