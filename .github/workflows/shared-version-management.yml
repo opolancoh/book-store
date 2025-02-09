@@ -11,6 +11,9 @@ on:
       new-version:
         description: "The calculated new version"
         value: ${{ jobs.version-management.outputs.new_version }}
+      current-version:
+        description: "The current version"
+        value: ${{ jobs.version-management.outputs.current_version }}
 
 jobs:
   version-management:

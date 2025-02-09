@@ -13,85 +13,47 @@ jobs:
     with:
       dotnet-version: '9.0.x'
 
-  version-and-tag:
+  version:
     needs: build-test
+    uses: ./.github/workflows/shared-version-management.yml
+    with:
+      project-path: './src/BookStore.Api/BookStore.Api.csproj'
+
+  commit-and-tag:
+    needs: version
     runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Extract current version
-        id: version
-        shell: bash
-        run: |
-          PROJECT_PATH="./src/BookStore.Api/BookStore.Api.csproj"
-          if [ ! -f "$PROJECT_PATH" ]; then
-            echo "::error::Project file not found at $PROJECT_PATH"
-            exit 1
-          fi
-          
-          VERSION=$(grep -oP '(?<=<Version>)(.*?)(?=</Version>)' "$PROJECT_PATH" || echo "1.0.0")
-          if [ -z "$VERSION" ]; then
-            echo "No version found in project file, defaulting to 1.0.0"
-            VERSION="1.0.0"
-          fi
-          echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Current version: $VERSION"
-
-      - name: Calculate next version
-        id: bump_version
-        shell: bash
-        run: |
-          CURRENT_VERSION="${{ env.CURRENT_VERSION }}"
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          
-          if git log "$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD^)"..HEAD --pretty=format:"%s" | grep -qiE '\[major\]'; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif git log "$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD^)"..HEAD --pretty=format:"%s" | grep -qiE '\[minor\]'; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-          
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "New version: $NEW_VERSION"
-
-      - name: Update version in csproj
-        shell: bash
-        run: |
-          PROJECT_PATH="./src/BookStore.Api/BookStore.Api.csproj"
-          sed -i "s|<Version>.*</Version>|<Version>${{ env.NEW_VERSION }}</Version>|" "$PROJECT_PATH"
-
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Update version in csproj
+        shell: bash
+        run: |
+          sed -i "s|<Version>.*</Version>|<Version>${{ needs.version.outputs.new-version }}</Version>|" "./src/BookStore.Api/BookStore.Api.csproj"
+
       - name: Commit version update
         run: |
           git add "./src/BookStore.Api/BookStore.Api.csproj"
-          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git commit -m "chore: bump version to ${{ needs.version.outputs.new-version }} [skip ci]"
           git push origin master
 
       - name: Create and push tag
         run: |
-          git tag -a "v${{ env.NEW_VERSION }}" -m "Release version ${{ env.NEW_VERSION }}"
-          git push origin "v${{ env.NEW_VERSION }}"
+          git tag -a "v${{ needs.version.outputs.new-version }}" -m "Release version ${{ needs.version.outputs.new-version }}"
+          git push origin "v${{ needs.version.outputs.new-version }}"
 
   deploy:
-    needs: version-and-tag
+    needs: [version, commit-and-tag]
     uses: ./.github/workflows/shared-deployment.yml
     with:
       webhook-url: ${{ vars.WEBHOOK_URL }}
       application-id: ${{ vars.APPLICATION_ID }}
-      version: ${{ needs.version-and-tag.outputs.new_version }}
+      version: ${{ needs.version.outputs.new-version }}
       branch: ${{ github.ref_name }}
