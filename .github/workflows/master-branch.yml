@@ -1,20 +1,26 @@
 name: Master Branch Workflow
 
 permissions:
-  contents: write  # For git push
+  contents: write
 
 on:
   push:
     branches: [ "master" ]
 
+env:
+  VERSIONING_PROJECT_PATH: src/BookStore.Api/BookStore.Api.csproj
+
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for version calculation
 
-      - name: Setup .NET
+      - name: Install .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
@@ -23,75 +29,85 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
 
-      - name: Get latest version
-        id: get_version
+      - name: Extract current version
+        id: version
+        shell: bash
         run: |
-          VERSION=$(grep -oP '(?<=<Version>)(.*?)(?=</Version>)' src/BookStore.Api/BookStore.Api.csproj)
+          VERSION=$(grep -oP '(?<=<Version>)(.*?)(?=</Version>)' "${{ env.VERSIONING_PROJECT_PATH }}")
           if [ -z "$VERSION" ]; then
-            echo "Error: Version tag not found in project file"
+            echo "::error::Version tag not found in project file"
             exit 1
           fi
-          echo "Current version: $VERSION"
           echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Current version: $VERSION"
 
-      - name: Determine new version
+      - name: Calculate next version
         id: bump_version
+        shell: bash
         run: |
           CURRENT_VERSION="${{ env.CURRENT_VERSION }}"
-          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
-          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
-          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
           
-          # Determine if this is a breaking change, feature, or patch
-          # Read commit messages to decide
-          if git log -1 --pretty=%B | grep -q '\[major\]'; then
+          # Parse version components
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Check commit messages since last tag for version bump indicators
+          if git log "$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD^)"..HEAD --pretty=format:"%s" | grep -qiE '\[major\]'; then
             MAJOR=$((MAJOR + 1))
             MINOR=0
             PATCH=0
-          elif git log -1 --pretty=%B | grep -q '\[minor\]'; then
+          elif git log "$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD^)"..HEAD --pretty=format:"%s" | grep -qiE '\[minor\]'; then
             MINOR=$((MINOR + 1))
             PATCH=0
           else
             PATCH=$((PATCH + 1))
           fi
-
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          echo "New version: $NEW_VERSION"
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git fetch origin master
-
-      - name: Update project file and commit
-        run: |
-          # Update version in project file
-          sed -i "s/<Version>.*<\/Version>/<Version>${{ env.NEW_VERSION }}<\/Version>/" src/BookStore.Api/BookStore.Api.csproj
           
-          # Stage, commit, and push changes
-          git add src/BookStore.Api/BookStore.Api.csproj
-          git commit -m "Bump version to ${{ env.NEW_VERSION }}"
-          git pull --rebase origin master
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "New version: $NEW_VERSION"
+
+      - name: Update version in csproj
+        shell: bash
+        run: |
+          sed -i "s|<Version>.*</Version>|<Version>${{ env.NEW_VERSION }}</Version>|" "${{ env.VERSIONING_PROJECT_PATH }}"
+
+      - name: Commit version update
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ env.VERSIONING_PROJECT_PATH }}"
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
           git push origin master
 
-      - name: Run deployment
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ env.NEW_VERSION }}" -m "Release version ${{ env.NEW_VERSION }}"
+          git push origin "v${{ env.NEW_VERSION }}"
+
+      - name: Trigger deployment webhook
         if: success()
         run: |
-          response=$(curl -w "\n%{http_code}" -X POST "${{ vars.WEBHOOK_URL }}/api/github" \
+          response=$(curl --retry 3 --retry-delay 5 -w "\n%{http_code}" -X POST "${{ vars.WEBHOOK_URL }}/api/github" \
           -H "Content-Type: application/json" \
+          -H "User-Agent: GitHub-Actions" \
           -d '{
             "branch": "${{ github.ref_name }}",
-            "appId": "${{ vars.APPLICATION_ID }}"
+            "appId": "${{ vars.APPLICATION_ID }}",
+            "version": "${{ env.NEW_VERSION }}"
           }')
+          
           status_code=$(echo "$response" | tail -n1)
-          if [ "$status_code" -ge 400 ]; then
-            echo "Deployment webhook failed with status: $status_code"
+          response_body=$(echo "$response" | head -n -1)
+          
+          echo "Webhook response: $response_body"
+          
+          if [ "$status_code" -lt 200 ] || [ "$status_code" -ge 300 ]; then
+            echo "::error::Deployment webhook failed with status: $status_code"
+            echo "Response: $response_body"
             exit 1
           fi
