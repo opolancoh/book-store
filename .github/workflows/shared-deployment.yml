@@ -1,0 +1,44 @@
+# .github/workflows/shared-deployment.yml
+name: Deployment
+
+on:
+  workflow_call:
+    inputs:
+      webhook-url:
+        required: true
+        type: string
+      application-id:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deployment webhook
+        run: |
+          response=$(curl --retry 3 --retry-delay 5 -w "\n%{http_code}" -X POST "${{ inputs.webhook-url }}/api/github" \
+          -H "Content-Type: application/json" \
+          -H "User-Agent: GitHub-Actions" \
+          -d '{
+            "branch": "${{ inputs.branch }}",
+            "appId": "${{ inputs.application-id }}",
+            "version": "${{ inputs.version }}"
+          }')
+          
+          status_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | head -n -1)
+          
+          echo "Webhook response: $response_body"
+          
+          if [ "$status_code" -lt 200 ] || [ "$status_code" -ge 300 ]; then
+            echo "::error::Deployment webhook failed with status: $status_code"
+            echo "Response: $response_body"
+            exit 1
+          fi
