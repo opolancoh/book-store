@@ -9,29 +9,33 @@ on:
 
 jobs:
   build-and-test:
+    name: Build and Test
     uses: ./.github/workflows/shared-build-test.yml
     with:
       dotnet-version: '9.0.x'
 
-  determine-new-version:
+  calculate-new-version:
+    name: Calculate New Version
     needs: build-and-test
     uses: ./.github/workflows/shared-version-management.yml
     with:
       project-path: './src/BookStore.Api/BookStore.Api.csproj'
 
-  commit-version-and-tag:
-    needs: determine-new-version
+  update-version-and-tag:
+    name: Update Version and Tag
+    needs: calculate-new-version
     uses: ./.github/workflows/shared-commit-version-and-tag.yml
     with:
       file-path: './src/BookStore.Api/BookStore.Api.csproj'
-      new-version: ${{ needs.version.outputs.new-version }}
+      new-version: ${{ needs.calculate-new-version.outputs.new-version }}
       branch: ${{ github.ref_name }}
 
-  deploy-to-production:
-    needs: [determine-new-version, commit-version-and-tag]
+  deploy:
+    name: Deploy ${{ github.ref_name }} branch
+    needs: [calculate-new-version, update-version-and-tag]
     uses: ./.github/workflows/shared-deployment.yml
     with:
       webhook-url: ${{ vars.WEBHOOK_URL }}
       application-id: ${{ vars.APPLICATION_ID }}
-      version: ${{ needs.version.outputs.new-version }}
+      version: ${{ needs.calculate-new-version.outputs.new-version }}
       branch: ${{ github.ref_name }}
