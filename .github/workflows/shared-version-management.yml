@@ -1,5 +1,5 @@
 # .github/workflows/shared-version-management.yml
-name: Version Management
+name: Get next version
 
 on:
   workflow_call:

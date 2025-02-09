@@ -8,51 +8,28 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build-test:
+  build-and-test:
     uses: ./.github/workflows/shared-build-test.yml
     with:
       dotnet-version: '9.0.x'
 
-  version:
-    needs: build-test
+  determine-new-version:
+    needs: build-and-test
     uses: ./.github/workflows/shared-version-management.yml
     with:
       project-path: './src/BookStore.Api/BookStore.Api.csproj'
 
-  commit-and-tag:
-    needs: version
-    runs-on: ubuntu-latest
-    env:
-      PROJECT_PATH: './src/BookStore.Api/BookStore.Api.csproj'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  commit-version-and-tag:
+    needs: determine-new-version
+    uses: ./.github/workflows/shared-commit-version-and-tag.yml
+    with:
+      file-path: './src/BookStore.Api/BookStore.Api.csproj'
+      new-version: ${{ needs.version.outputs.new-version }}
+      branch: ${{ github.ref_name }}
+      skip-tag: false
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Update version in csproj
-        shell: bash
-        run: |
-          sed -i "s|<Version>.*</Version>|<Version>${{ needs.version.outputs.new-version }}</Version>|" "${{ env.PROJECT_PATH }}"
-
-      - name: Commit version update
-        run: |
-          git add "${{ env.PROJECT_PATH }}"
-          git commit -m "chore: bump version to ${{ needs.version.outputs.new-version }} [skip ci]"
-          git push origin master
-
-      - name: Create and push tag
-        run: |
-          git tag -a "v${{ needs.version.outputs.new-version }}" -m "Release version ${{ needs.version.outputs.new-version }}"
-          git push origin "v${{ needs.version.outputs.new-version }}"
-
-  deploy:
-    needs: [version, commit-and-tag]
+  deploy-to-production:
+    needs: [determine-new-version, commit-version-and-tag]
     uses: ./.github/workflows/shared-deployment.yml
     with:
       webhook-url: ${{ vars.WEBHOOK_URL }}
