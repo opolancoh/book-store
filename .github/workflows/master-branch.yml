@@ -22,6 +22,8 @@ jobs:
   commit-and-tag:
     needs: version
     runs-on: ubuntu-latest
+    env:
+      PROJECT_PATH: './src/BookStore.Api/BookStore.Api.csproj'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,11 +38,11 @@ jobs:
       - name: Update version in csproj
         shell: bash
         run: |
-          sed -i "s|<Version>.*</Version>|<Version>${{ needs.version.outputs.new-version }}</Version>|" "./src/BookStore.Api/BookStore.Api.csproj"
+          sed -i "s|<Version>.*</Version>|<Version>${{ needs.version.outputs.new-version }}</Version>|" "${{ env.PROJECT_PATH }}"
 
       - name: Commit version update
         run: |
-          git add "./src/BookStore.Api/BookStore.Api.csproj"
+          git add "${{ env.PROJECT_PATH }}"
           git commit -m "chore: bump version to ${{ needs.version.outputs.new-version }} [skip ci]"
           git push origin master
 
