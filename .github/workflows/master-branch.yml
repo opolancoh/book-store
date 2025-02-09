@@ -26,7 +26,6 @@ jobs:
       file-path: './src/BookStore.Api/BookStore.Api.csproj'
       new-version: ${{ needs.version.outputs.new-version }}
       branch: ${{ github.ref_name }}
-      skip-tag: false
 
   deploy-to-production:
     needs: [determine-new-version, commit-version-and-tag]

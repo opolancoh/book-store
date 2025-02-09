@@ -15,11 +15,6 @@ on:
         required: true
         type: string
         description: "Branch to commit to"
-      skip-tag:
-        required: false
-        type: boolean
-        default: false
-        description: "Skip tag creation if true"
 
 jobs:
   git-operations:
@@ -36,59 +31,17 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Update version in file
-        id: update-version
         shell: bash
         run: |
-          if [ ! -f "${{ inputs.file-path }}" ]; then
-            echo "::error::File not found at ${{ inputs.file-path }}"
-            exit 1
-          fi
-          
           sed -i "s|<Version>.*</Version>|<Version>${{ inputs.new-version }}</Version>|" "${{ inputs.file-path }}"
-          
-          # Verify the change was made
-          if ! grep -q "<Version>${{ inputs.new-version }}</Version>" "${{ inputs.file-path }}"; then
-            echo "::error::Failed to update version in file"
-            exit 1
-          fi
 
       - name: Commit version update
-        id: commit
         run: |
-          if git diff --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          
           git add "${{ inputs.file-path }}"
           git commit -m "chore: bump version to ${{ inputs.new-version }} [skip ci]"
-          
-          # Push with error handling
-          if ! git push origin "${{ inputs.branch }}"; then
-            echo "::error::Failed to push changes to ${{ inputs.branch }}"
-            exit 1
-          fi
+          git push origin master
 
       - name: Create and push tag
-        id: tag
-        if: ${{ !inputs.skip-tag && steps.commit.outcome == 'success' }}
         run: |
-          TAG_NAME="v${{ inputs.new-version }}"
-          
-          # Check if tag already exists
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "::warning::Tag $TAG_NAME already exists"
-            exit 0
-          fi
-          
-          # Create and push tag with error handling
-          if ! git tag -a "$TAG_NAME" -m "Release version ${{ inputs.new-version }}"; then
-            echo "::error::Failed to create tag $TAG_NAME"
-            exit 1
-          fi
-          
-          if ! git push origin "$TAG_NAME"; then
-            echo "::error::Failed to push tag $TAG_NAME"
-            git tag -d "$TAG_NAME"  # Clean up local tag if push fails
-            exit 1
-          fi
+          git tag -a "v${{ inputs.new-version }}" -m "Release version ${{ inputs.new-version }}"
+          git push origin "v${{ inputs.new-version }}"
