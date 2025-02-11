@@ -21,12 +21,12 @@ jobs:
     with:
       version-file-path: './src/BookStore.Api/BookStore.Api.csproj'
 
-  deploy:
-    name: Deploy to Target Environment
-    needs: [ semantic-versioning ]
-    uses: ./.github/workflows/shared-node-deployment.yml
-    with:
-      deployment-service-address: ${{ vars.DEPLOYMENT_SERVICE_ADDRESS }}
-      application-id: ${{ vars.APPLICATION_ID }}
-      version: ${{ needs.semantic-versioning.outputs.new-version }}
-      branch: ${{ github.ref_name }}
+  # deploy:
+    # name: Deploy to Target Environment
+    # needs: [ semantic-versioning ]
+    # uses: ./.github/workflows/shared-node-deployment.yml
+    # with:
+      #deployment-service-address: ${{ vars.DEPLOYMENT_SERVICE_ADDRESS }}
+      #application-id: ${{ vars.APPLICATION_ID }}
+      #version: ${{ needs.semantic-versioning.outputs.new-version }}
+      #branch: ${{ github.ref_name }}
