@@ -1,0 +1,40 @@
+name: Deployment
+
+on:
+  workflow_call:
+    inputs:
+      webhook-url:
+        required: true
+        type: string
+      application-id:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+
+jobs:
+  listen-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install WebSocket Client
+        run: npm install ws
+
+      - name: Connect to WebSocket Server
+        env:
+          WS_URL: wss://${{ vars.DEPLOYMENT_SERVICE_ADDRESS }}?token=your_generated_token
+        run: |
+          node - <<EOF
+          const WebSocket = require("ws");
+
+          const ws = new WebSocket(process.env.WS_URL);
+
+          ws.on("open", () => console.log("✅ Connected to Deployment service."));
+
+          ws.on("message", (data) => console.log(`🔹 Update: ${data.toString()}`));
+
+          ws.on("close", () => console.log("✅ Deployment service connection closed."));
+          EOF

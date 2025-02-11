@@ -1,4 +1,4 @@
-name: Master Branch Workflow
+name: Master Branch Pipeline
 
 permissions:
   contents: write
@@ -9,24 +9,24 @@ on:
 
 jobs:
   build-and-test:
-    name: Build and Test
+    name: Build solution and Test  
     uses: ./.github/workflows/shared-build-test.yml
     with:
       dotnet-version: '9.0.x'
 
   semantic-versioning:
-    name: Calculate and update new semantic version
+    name: Generate Version
     needs: [ build-and-test ]
-    uses: ./.github/workflows/dotnet-semantic-version.yml
+    uses: ./.github/workflows/shared-dotnet-semantic-version.yml
     with:
       version-file-path: './src/BookStore.Api/BookStore.Api.csproj'
 
   deploy:
-    name: Deploy ${{ github.ref_name }} branch
+    name: Deploy to Target Environment
     needs: [ semantic-versioning ]
-    uses: ./.github/workflows/shared-deployment.yml
+    uses: ./.github/workflows/shared-node-deployment.yml
     with:
-      webhook-url: ${{ vars.WEBHOOK_URL }}
+      deployment-service-address: ${{ vars.DEPLOYMENT_SERVICE_ADDRESS }}
       application-id: ${{ vars.APPLICATION_ID }}
       version: ${{ needs.semantic-versioning.outputs.new-version }}
       branch: ${{ github.ref_name }}

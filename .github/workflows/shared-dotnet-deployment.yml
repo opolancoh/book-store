@@ -1,4 +1,3 @@
-# .github/workflows/shared-deployment.yml
 name: Deployment
 
 on:
