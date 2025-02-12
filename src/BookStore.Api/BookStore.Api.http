@@ -47,3 +47,8 @@ Content-Type: application/json
 DELETE {{host}}/api/books/{{book1_id}}
 
 ###
+
+GET {{host}}/info
+Accept: application/json
+
+###

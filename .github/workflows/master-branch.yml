@@ -15,7 +15,7 @@ jobs:
       dotnet-version: '9.0.x'
 
   semantic-versioning:
-    name: Generate Version
+    name: Generate New Version
     needs: [ build-and-test ]
     uses: ./.github/workflows/shared-dotnet-semantic-version.yml
     with:

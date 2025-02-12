@@ -4,8 +4,8 @@ services:
     build: .
     
     ports:
-    # Map HTTPS port from host to container (HTTPS_PORT must be set)
-    - "${HTTPS_PORT}:${HTTPS_PORT}"
+      # Map HTTPS port from host to container
+      - "${HTTPS_PORT}:${HTTPS_PORT}"
     
     environment:
       # Set ASP.NET Core environment (defaults to Development)
@@ -13,38 +13,27 @@ services:
       # Configure Kestrel to listen on HTTPS port
       - ASPNETCORE_URLS=https://+:${HTTPS_PORT}
       # SSL certificate configuration
-      - ASPNETCORE_Kestrel__Certificates__Default__Password=${MYDOTNETCERT_CERT_PASSWORD}
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${MYDOTNETCERT_PASSWORD}
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/my-dotnet-cert.pfx
       # Database connection string from environment variable
       - ConnectionStrings__DefaultConnection=${BOOKSTORE_CONNECTIONSTRINGS_DEFAULTCONNECTION}
     
     volumes:
       # SSL Certificate Configuration:
-      # - Source: ${MYDOTNETCERT_CERT_PATH} (host machine path, e.g. ${HOME}/dev/certs/my-dotnet-cert)
+      # - Source: ${MYDOTNETCERT_PATH} (host machine path, e.g. ${HOME}/dev/certs/my-dotnet-cert)
       # - Target: /https (container path where certificate will be accessible)
       # - Mode: ro (read-only access for security)
       # 
       # The certificate file (my-dotnet-cert.pfx) must exist in the source directory
       # Example full path on host: /Users/username/dev/certs/my-dotnet-cert/my-dotnet-cert.pfx
       # Example full path in container: /https/my-dotnet-cert.pfx
-      - ${MYDOTNETCERT_CERT_PATH}:/https:ro
+      - ${MYDOTNETCERT_PATH}:/https:ro
     
     networks:
       # Connect to pre-existing network named 'bookstore-network'
       - bookstore-network
 
 networks:
-  # Use an existing network (must be created before running docker-compose up)
+  # Use an existing network (must be created before running docker compose)
   bookstore-network:
     external: true
-
-# Environment Variables:
-# Required:
-# MYDOTNETCERT_PASSWORD                         - SSL certificate password
-# MYDOTNETCERT_CERT_PATH                        - Path to SSL certificate directory on host
-# BOOKSTORE_CONNECTIONSTRINGS_DEFAULTCONNECTION - Database connection string
-#
-# Optional (with defaults):
-# API_PORT               - HTTP port (default: 5050)
-# HTTPS_PORT             - HTTPS port (default: 5051)
-# ASPNETCORE_ENVIRONMENT - Runtime environment (default: Development)
