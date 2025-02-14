@@ -9,11 +9,10 @@ namespace BookStore.Api.Controllers;
 public class InfoController : ControllerBase
 {
     [HttpGet]
-    // [ProducesResponseType(typeof(IEnumerable<BookDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Get()
     {
         var result = await GetServerInfoAsync();
-        // The Version property from your .csproj will be reflected in the InformationalVersion
+
         return Ok(result);
     }
 
