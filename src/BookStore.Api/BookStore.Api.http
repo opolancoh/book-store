@@ -1,8 +1,18 @@
-# @host = http://localhost:5220
-@host = https://localhost:5301
+@host = http://localhost:5220
+# @host = https://localhost:5301
 @category1_id = c0a80121-0000-0000-0000-000000000001
 @author1_id = c0a80121-0000-0000-0001-000000000001
 @book1_id = c0a80121-0000-0000-0002-000000000001
+
+GET {{host}}/health
+Accept: application/json
+
+###
+
+GET {{host}}/info
+Accept: application/json
+
+###
 
 GET {{host}}/api/books
 Accept: application/json
