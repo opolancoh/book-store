@@ -12,10 +12,10 @@ on:
       ecr-repository:
         required: true
         type: string
-      tag-latest:
+      tags:
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: "latest"  # Default to "latest" if no tags provided
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -48,16 +48,17 @@ jobs:
           ECR_REPOSITORY: ${{ inputs.ecr-repository }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build a docker container and push it to ECR
+          # Build the docker container
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ${{ inputs.dockerfile-path }} .
           echo "Pushing image to ECR with tag $IMAGE_TAG"
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          # Conditionally push latest tag
-          if [[ "${{ inputs.tag-latest }}" == "true" ]]; then
-            echo "Also tagging and pushing as latest"
-            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          fi
+          # Split comma-separated tags and process each
+          IFS=',' read -r -a TAGS <<< "${{ inputs.tags }}"
+          for TAG in "${TAGS[@]}"; do
+            echo "Tagging and pushing as $TAG"
+            docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$TAG
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$TAG
+          done
           
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT

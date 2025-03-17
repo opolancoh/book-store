@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/shared-dotnet-semantic-version.yml
     with:
       version-file-path: './src/BookStore.Api/BookStore.Api.csproj'
-  
+
   push-to-ecr:
     name: Push Docker image to ECR
     needs: [ semantic-versioning ]
@@ -29,10 +29,11 @@ jobs:
       dockerfile-path: './Dockerfile'
       aws-region: ${{ vars.AWS_REGION }}
       ecr-repository: ${{ vars.ECR_REPOSITORY_NAME }}
+      tags: "v${{ needs.semantic-versioning.outputs.new-version }},latest"  # Combine version and 'latest'
     secrets:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      
+
       # deploy:
       # name: Deploy to Target Environment
       # needs: [ semantic-versioning ]
