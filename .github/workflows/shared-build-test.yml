@@ -1,13 +1,11 @@
-# .github/workflows/shared-build-test.yml
 name: Build and Test
 
 on:
   workflow_call:
     inputs:
       dotnet-version:
-        required: false
+        required: true
         type: string
-        default: '9.0.x'
 
 jobs:
   build-and-test:

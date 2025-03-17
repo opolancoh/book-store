@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-test:
     name: Build solution and Test
-    uses: ./.github/workflows/shared-build-test.yml
+    uses: shared-build-test.yml
     with:
       dotnet-version: '9.0.x'
 
