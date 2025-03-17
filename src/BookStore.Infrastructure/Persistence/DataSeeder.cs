@@ -1,4 +1,5 @@
 using BookStore.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace BookStore.Infrastructure.Persistence;
 
@@ -49,6 +50,7 @@ public class DataSeeder
     public DataSeeder(ApplicationDbContext context)
     {
         _context = context;
+        _context.Database.Migrate(); // Ensure the database is created & migrations are applied
     }
 
     public async Task SeedAsync()
