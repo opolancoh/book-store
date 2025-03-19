@@ -1,10 +1,14 @@
 using BookStore.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace BookStore.Infrastructure.Persistence;
 
 public class DataSeeder
 {
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<DataSeeder> _logger;
+
     // Hardcoded GUIDs for Categories
     private static class CategoryIds
     {
@@ -44,13 +48,63 @@ public class DataSeeder
         public static readonly Guid HarryPotter3 = new("c0a80121-0000-0000-0002-000000000014");
         public static readonly Guid EndOfEternity = new("c0a80121-0000-0000-0002-000000000015");
     }
-
-    private readonly ApplicationDbContext _context;
-
-    public DataSeeder(ApplicationDbContext context)
+    
+    private static string SanitizeConnectionString(string connectionString)
     {
+        // If using standard connection string format with semicolons and equals signs
+        if (!connectionString.Contains(";") || !connectionString.Contains("="))
+            return connectionString.Replace("://", "://***:***@");
+
+        var parts = connectionString.Split(';')
+            .Select(part =>
+            {
+                if (!part.Contains("password=", StringComparison.OrdinalIgnoreCase) &&
+                    !part.Contains("pwd=", StringComparison.OrdinalIgnoreCase) &&
+                    !part.Contains("pass=", StringComparison.OrdinalIgnoreCase)) return part;
+                var keyValue = part.Split('=', 2);
+
+                return keyValue[0] + "=********";
+            });
+        return string.Join(";", parts);
+    }
+
+    public DataSeeder(ILogger<DataSeeder> logger, ApplicationDbContext context)
+    {
+        _logger = logger;
         _context = context;
-        _context.Database.Migrate(); // Ensure the database is created & migrations are applied
+
+        var connection = _context.Database.GetConnectionString();
+        if (connection != null)
+        {
+            // Create sanitized connection string that masks the password
+            var sanitizedConnection = SanitizeConnectionString(connection);
+            _logger.LogInformation("Database connection: {connection}", sanitizedConnection);
+        }
+        else
+        {
+            _logger.LogInformation("Database connection string not valid");
+        }
+
+        // Check pending migrations before applying them
+        _logger.LogInformation("Checking for pending migrations...");
+        var pendingMigrations = _context.Database.GetPendingMigrations();
+        var pendingMigrationsList = pendingMigrations.ToList();
+
+        if (pendingMigrationsList.Any())
+        {
+            _logger.LogInformation("Found {count} pending migrations: {migrations}",
+                pendingMigrationsList.Count,
+                string.Join(", ", pendingMigrationsList));
+
+            // Apply migrations
+            _logger.LogInformation("Applying database migrations...");
+            _context.Database.Migrate();
+            _logger.LogInformation("Database migrations applied successfully!");
+        }
+        else
+        {
+            _logger.LogInformation("Database is up-to-date, no migrations to apply");
+        }
     }
 
     public async Task SeedAsync()
@@ -96,6 +150,12 @@ public class DataSeeder
                 }
             };
             await _context.Categories.AddRangeAsync(categories);
+
+            _logger.LogInformation("Categories data added successfully!");
+        }
+        else
+        {
+            _logger.LogInformation("Categories data already exist!");
         }
 
         if (!_context.Authors.Any())
@@ -139,6 +199,12 @@ public class DataSeeder
                 }
             };
             await _context.Authors.AddRangeAsync(authors);
+
+            _logger.LogInformation("Authors data added successfully!");
+        }
+        else
+        {
+            _logger.LogInformation("Authors data already exist!");
         }
 
         if (_context.ChangeTracker.HasChanges())
@@ -333,6 +399,12 @@ public class DataSeeder
             };
             await _context.Books.AddRangeAsync(books);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Books data added successfully!");
+        }
+        else
+        {
+            _logger.LogInformation("Books data already exists!");
         }
     }
 }
